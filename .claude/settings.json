@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git status:*)",
+      "Read(./src/**)",
+      "Edit(./src/**)",
+      "Bash(venv/Scripts/python -m pip:*)",
+      "Bash(ls:*)",
+      "Bash(move:*)"
+    ],
+    "deny": [
+      "Read(~/.ssh/**)",
+      "Read(conf/google-credentials.json)",
+      "Bash(rm -rf:*)",
+      "Bash(sudo:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)"
+    ]
+  },
+  "includeCoAuthoredBy": false
+}

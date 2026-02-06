@@ -1,0 +1,31 @@
+.claude/settings.local.json
+
+# Environment variables
+conf/.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+venv
+env/
+ENV/
+.venv
+
+conf/google-credentials.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
