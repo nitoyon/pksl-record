@@ -3,7 +3,8 @@ name: dish-strength
 description: 料理エナジー読み取り
 ---
 
-会話でエナジー読み取りをリクエストされたときに、次の処理をしてください
+会話でエナジー読み取りをリクエストされたときに、次の処理をしてください。
+それぞれのタイミングでの経過報告は不要であり、完了時に情報をシンプルに提示してください。
 
 ## 1. 日付と時間帯の決定
 
@@ -26,8 +27,7 @@ description: 料理エナジー読み取り
 以下のコマンドを実行してスプレッドシートに記録してください。
 
 ```
-venv\Scripts\python YYYY-MM-DD 朝|昼|晩 !|_ 料理名 エナジー
-
+venv\Scripts\python dish_recorder.py YYYY-MM-DD 朝|昼|晩 !|_ 料理名 エナジー
 ```
 
 例: `venv\Scripts\python dish_recorder.py 2026-02-01 _ しんりょくアボカドグラタン 117612`
