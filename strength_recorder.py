@@ -4,11 +4,12 @@ Pokemon Sleep Strength Recorder for Google Sheets
 
 import sys
 import io
-from datetime import date, timedelta
+from datetime import date
 
 # Windows (cp932) で絵文字の出力エラーを回避する
 if sys.stdout.encoding and sys.stdout.encoding.lower().startswith('cp'):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+from date_utils import calculate_row_number
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
@@ -49,42 +50,6 @@ class PokemonSleepRecorder:
             print(f"✗ Error initializing Google Sheets API: {e}")
             raise
 
-    def calculate_row_number(self, target_date):
-        """
-        Calculate spreadsheet row number from date
-
-        Args:
-            target_date: date object
-
-        Returns:
-            int or None
-        """
-        # Base: 2026/2/1 (Sun) = H1152
-        base_date = date(2026, 2, 1)
-        base_row = 1152
-
-        if target_date < base_date:
-            print(f"❌ {target_date} is before the base date")
-            return None
-
-        # Calculate row by iterating through dates
-        current_date = base_date
-        current_row = base_row
-
-        while current_date < target_date:
-            next_date = current_date + timedelta(days=1)
-
-            # Sunday to Monday: +3, otherwise: +1
-            if current_date.weekday() == 6 and next_date.weekday() == 0:
-                current_row += 3
-            else:
-                current_row += 1
-
-            current_date = next_date
-
-        print(f"📍 Date {target_date} corresponds to row {current_row}")
-        return current_row
-
     def update_spreadsheet(self, target_date, energy):
         """
         Update Google Sheets with energy data
@@ -100,7 +65,7 @@ class PokemonSleepRecorder:
         if self.sheets_service is None:
             self.init_sheets()
 
-        row_number = self.calculate_row_number(target_date)
+        row_number = calculate_row_number(target_date)
         if not row_number:
             return {
                 'success': False,
