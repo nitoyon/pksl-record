@@ -85,11 +85,11 @@ class SkillRecorder:
                     'values': [[target_date.isoformat()]],
                 },
                 {
-                    'range': f"'{self.sheet_name}'!C{row}",
+                    'range': f"'{self.sheet_name}'!B{row}",
                     'values': [[time_str]],
                 },
                 {
-                    'range': f"'{self.sheet_name}'!D{row}",
+                    'range': f"'{self.sheet_name}'!C{row}",
                     'values': [[pokemon_name]],
                 },
             ])
