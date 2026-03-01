@@ -85,6 +85,10 @@ class DishRecorder:
         if len(matches) == 1:
             return matches[0]
         if len(matches) > 1:
+            # 完全一致するものがあればそれを返す（重複登録対策）
+            unique_matches = list(set(matches))
+            if len(unique_matches) == 1:
+                return unique_matches[0]
             print(f"❌ 複数の料理名が一致しました: {matches}")
             return None
         return None

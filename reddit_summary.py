@@ -1,6 +1,7 @@
 import sys
 import io
 import json
+import re
 import argparse
 import urllib.request
 import urllib.error
@@ -12,6 +13,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower().startswith('cp'):
 
 POSTS_URL = "https://www.reddit.com/r/PokemonSleep/top.json?t=day&limit=10"
 COMMENTS_URL = "https://www.reddit.com/r/PokemonSleep/comments/{post_id}.json?sort=best&limit={limit}"
+POST_URL = "https://www.reddit.com/comments/{post_id}.json?sort=best&limit={limit}"
 HEADERS = {"User-Agent": "pksl-record/1.0"}
 
 
@@ -40,11 +42,68 @@ def fetch_top_comments(post_id, limit):
     return comments[:limit]
 
 
+def extract_post_id(url):
+    m = re.search(r'/comments/([a-z0-9]+)', url)
+    if not m:
+        print(f"Error: URL から post_id を抽出できませんでした: {url}", file=sys.stderr)
+        sys.exit(1)
+    return m.group(1)
+
+
+def fetch_post_by_url(url, num_comments):
+    post_id = extract_post_id(url)
+    limit = max(num_comments, 1)
+    data = fetch_json(POST_URL.format(post_id=post_id, limit=limit))
+
+    p = data[0]["data"]["children"][0]["data"]
+    title = p.get("title", "")
+    score = p.get("score", 0)
+    num_cmts = p.get("num_comments", 0)
+    permalink = "https://www.reddit.com" + p.get("permalink", "")
+    selftext = p.get("selftext", "").strip()
+
+    comments = []
+    for child in data[1]["data"]["children"]:
+        c = child.get("data", {})
+        body = c.get("body", "").strip()
+        cscore = c.get("score", 0)
+        if body and body != "[deleted]" and body != "[removed]":
+            comments.append({"body": body, "score": cscore})
+    comments = comments[:num_comments]
+
+    JST = timezone(timedelta(hours=9))
+    now = datetime.now(JST).strftime("%Y-%m-%d %H:%M JST")
+    print(f"取得日時: {now}")
+    print(f"URL: {permalink}")
+    print()
+    print(f"タイトル: {title}")
+    print(f"スコア: {score:,} | コメント: {num_cmts}")
+    print()
+    if selftext:
+        print(f"本文:\n{selftext}")
+    else:
+        print("本文: (画像/リンク投稿)")
+    print()
+
+    if comments:
+        print(f"人気コメント ({len(comments)}件):")
+        for c in comments:
+            print(f"  [{c['score']:,}点] {c['body']}")
+            print()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--comments", type=int, default=0, metavar="N",
                         help="各投稿の人気コメントを N 件取得する (デフォルト: 0=取得しない)")
+    parser.add_argument("--url", type=str, default=None, metavar="URL",
+                        help="特定の Reddit 投稿 URL を指定して詳細取得する")
     args = parser.parse_args()
+
+    if args.url:
+        num_comments = args.comments if args.comments > 0 else 50
+        fetch_post_by_url(args.url, num_comments)
+        return
 
     data = fetch_json(POSTS_URL)
     posts = data["data"]["children"]
