@@ -148,7 +148,7 @@ class DishRecorder:
 
         result = self.sheets_service.spreadsheets().values().batchUpdate(
             spreadsheetId=self.spreadsheet_id,
-            body={'valueInputOption': 'RAW', 'data': data},
+            body={'valueInputOption': 'USER_ENTERED', 'data': data},
         ).execute()
 
         updated = result.get('totalUpdatedCells', 0)
