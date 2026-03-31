@@ -1,0 +1,2 @@
+# conf/config.yaml にコピーして実際の値を入力してください
+NUZZLE_SHEET_ID: your-spreadsheet-id-here

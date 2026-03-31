@@ -16,6 +16,7 @@ ENV/
 .venv
 
 conf/google-credentials.json
+conf/config.yaml
 
 # IDE
 .vscode/
