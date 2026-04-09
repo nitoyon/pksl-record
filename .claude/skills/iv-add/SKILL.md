@@ -9,40 +9,43 @@ description: 個体登録
 
 スクリーンショットがある場合は、以下の処理をしてください。
 
-- 最初にプロンプトからユーザー情報を読み取ります。
+- 最初に「前処理」を実施します。
 - 各スクリーンショットについて、1～5の「スクリーンショットごとの処理」を実行してください。
-- 最後に「出力」の処理をしてください。
+- 最後に「出力」の処理をします。
 
-# ユーザー情報の読み取り
+# 前処理
 
 プロンプトから次の情報を読み取ってください。
 
 - username: ユーザー名
 - displayname: ユーザー表示名
 
-プロンプトの先頭行にはポケモン名が書いてあるかもしれないので、読み取っておいてください。
+プロンプトの先頭行から「ポケモン名」を読み取ってください。複数のスクリーンショットがある場合は、それぞれのポケモン名が渡されます。
+
+次に、スクリーンショットの前処理として、次のコマンドを実行して、画像を OCR 処理します。
+
+`ndl-ocr\.venv\Scripts\python ndl-ocr\src\ocr.py --sourcedir .tmp --output .tmp`
+
+- 処理には1枚あたり10秒程度の時間を要します。スクリプトが終了するまで待機してください。
+- 各画像ファイル名はそのままに、拡張子 .xml のファイルに OCR 結果が出力されます。
+  - (例) cdd55385-b416-4946-b1f8-31fa47a20867.png → cdd55385-b416-4946-b1f8-31fa47a20867.xml
 
 # スクリーンショットごとの処理
 
-## 1. ポケモン名の読み取り
+各スクリーンショットごとに `xml` ファイルを参照して、以下の1～5の処理を実行します。
 
-画像の左上にはポケモンのアイコンがあります。
-アイコンからどのポケモンなのかを特定してください。
-プロンプトの3行目以降でポケモン名が指定されたときには、それを優先してください。
-不明なときは「不明」としてください。
+## 1. 画像サイズの特定
+
+XMLファイルの先頭 2 行目の `PAGE` タグから画像のサイズを読み取ります。
+
+(例) `<PAGE IMAGENAME="cdd55385-b416-4946-b1f8-31fa47a20867.png" WIDTH="1183" HEIGHT="2109">` の場合、1183×2109。
 
 ## 2. レベル・ニックネームの読み取り
 
-アイコンの右にある「Lv. 14 〇〇」のような文字を読み取ってください。
-Lv. のあとの数字がレベルです。
+画像の左上にある「Lv.61〇〇」の文字からレベルとニックネームを読み取ってください。
 
-そのあとに続く、〇〇の部分がニックネームになります。
-
-⚠️名前の読みとりでは次の点に気を付けること
-- 濁点と半濁点を誤読しやすいので注意すること
-- ひらがなとカタカナの判別も注意すること
-  - (誤) サナヲ (正) サナろ
-  - (誤) キモリ (正) キモろ
+- (例) `<LINE TYPE="本文" X="255" Y="277" WIDTH="276" HEIGHT="30" CONF="0.929" PRED_CHAR_CNT="3.000" ORDER="16" STRING="Lv.61クワガノン" />` の場合、レベルは「61」、ニックネームは「クワガノン」。
+- Lv.ではなくLy.と読み取ることがあるので注意
 
 ## 3. スキル確率の読み取り
 
@@ -52,6 +55,38 @@ Lv. のあとの数字がレベルです。
 [Lv.10のサブスキル  ] [Lv.25のサブスキル ]
 [Lv.50のサブスキル  ] [Lv.75のサブスキル ]
 [Lv.100のサブスキル ]
+```
+
+(例) Lv.10: 食材確率アップM、Lv.25: スキル確率アップS、Lv.50 最大所持数アップL、Lv. 75: おてつだいスピードM、Lv.100: 食材確率アップS の場合
+
+```
+  <TEXTBLOCK CONF="0.873">
+    <LINE TYPE="本文" X="192" Y="961" WIDTH="260" HEIGHT="30" CONF="0.932" PRED_CHAR_CNT="3.000" ORDER="28" STRING="食材確率アップM" />
+  <SHAPE>...</SHAPE>
+    </TEXTBLOCK>
+  <TEXTBLOCK CONF="0.792">
+    <LINE TYPE="本文" X="161" Y="1147" WIDTH="323" HEIGHT="29" CONF="0.948" PRED_CHAR_CNT="3.000" ORDER="29" STRING="おてつだいスピードM" />
+  <SHAPE>...</SHAPE>
+    </TEXTBLOCK>
+  <TEXTBLOCK CONF="0.329">
+    <LINE TYPE="本文" X="101" Y="1278" WIDTH="115" HEIGHT="22" CONF="0.698" PRED_CHAR_CNT="3.000" ORDER="30" STRING="Lv.100" />
+    <LINE TYPE="本文" X="197" Y="1333" WIDTH="250" HEIGHT="30" CONF="0.939" PRED_CHAR_CNT="3.000" ORDER="32" STRING="食材確率アップS" />
+  <SHAPE>...</SHAPE>
+    </TEXTBLOCK>
+  <TEXTBLOCK CONF="0.789">
+    <LINE TYPE="本文" X="716" Y="960" WIDTH="282" HEIGHT="31" CONF="0.943" PRED_CHAR_CNT="3.000" ORDER="33" STRING="最大所持数アップL" />
+  <SHAPE>...</SHAPE>
+    </TEXTBLOCK>
+  <TEXTBLOCK CONF="0.684">
+    <LINE TYPE="本文" X="645" Y="1093" WIDTH="96" HEIGHT="21" CONF="0.710" PRED_CHAR_CNT="3.000" ORDER="34" STRING="Lv.75" />
+  <SHAPE>...</SHAPE>
+    </TEXTBLOCK>
+  <TEXTBLOCK CONF="0.772">
+    <LINE TYPE="本文" X="719" Y="1147" WIDTH="280" HEIGHT="29" CONF="0.936" PRED_CHAR_CNT="3.000" ORDER="35" STRING="スキル確率アップS" />
+  <SHAPE>...</SHAPE>
+    </TEXTBLOCK>
+  <TEXTBLOCK CONF="0.764">
+    <LINE TYPE="タイトル本文" X="114" Y="1565" WIDTH="270" HEIGHT="38" CONF="0.741" PRED_CHAR_CNT="3.000" ORDER="37" STRING="詳細ステータス" />
 ```
 
 必要なレベルに満たないサブスキルは無効です。
@@ -79,10 +114,35 @@ Lv. のあとの数字がレベルです。
 「せいかく」の右側には、せいかくによるステータスの変化量が記載されています。
 
 - 「せいかくによる特徴なし」と記載されている場合は、せいかくの変化量はすべて0としてください。
-- 赤い▲▲と青い▼▼マークがある場合は変化量ありです。
-  - 赤い▲▲のすぐ左に「メインスキル発生確率」とある場合は1としてください。
-  - 青い▼▼のすぐ左に「メインスキル発生確率」とある場合は-1としてください。
+- 特徴がある場合は順番に「上昇の項目」「下降の項目」が記載されます。
+  - 上昇の項目に「メインスキル発生確率」がある場合は1としてください。
+  - 下降の項目に「メインスキル発生確率」がある場合は-1としてください。
   - それ以外の場合は、0としてください。
+
+(例) メインスキル発生確率が下降の場合
+
+```
+    <LINE TYPE="タイトル本文" X="114" Y="1565" WIDTH="270" HEIGHT="38" CONF="0.741" PRED_CHAR_CNT="3.000" ORDER="37" STRING="詳細ステータス" />
+  <SHAPE>...</SHAPE>
+    </TEXTBLOCK>
+  <TEXTBLOCK CONF="0.717">
+    <LINE TYPE="本文" X="120" Y="1701" WIDTH="94" HEIGHT="23" CONF="0.550" PRED_CHAR_CNT="3.000" ORDER="38" STRING="せいかく" />
+  <SHAPE>...</SHAPE>
+    </TEXTBLOCK>
+  <TEXTBLOCK CONF="0.831">
+    <LINE TYPE="本文" X="251" Y="1758" WIDTH="142" HEIGHT="31" CONF="0.928" PRED_CHAR_CNT="3.000" ORDER="40" STRING="やんちゃ" />
+  <SHAPE>...</SHAPE>
+    </TEXTBLOCK>
+  <TEXTBLOCK CONF="0.479">
+    <LINE TYPE="タイトル本文" X="993" Y="1719" WIDTH="68" HEIGHT="27" CONF="0.421" PRED_CHAR_CNT="3.000" ORDER="44" STRING="AA" />
+  <SHAPE>...</SHAPE>
+    </TEXTBLOCK>
+  <TEXTBLOCK CONF="0.849">
+    <LINE TYPE="本文" X="617" Y="1717" WIDTH="330" HEIGHT="32" CONF="0.943" PRED_CHAR_CNT="3.000" ORDER="41" STRING="おてつだいスピード" />
+    <LINE TYPE="本文" X="617" Y="1790" WIDTH="357" HEIGHT="33" CONF="0.959" PRED_CHAR_CNT="3.000" ORDER="45" STRING="メインスキル発生確率" />
+    <SHAPE>...</SHAPE>
+    </TEXTBLOCK>
+```
 
 ## 5. スクリプトの実行
 
