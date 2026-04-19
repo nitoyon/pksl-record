@@ -27,8 +27,8 @@ class IvRecorder:
     """Handles Pokemon Sleep individual pokemon data recording to Google Sheets"""
 
     # コマンドライン引数と記録先の列の対応
-    # A: ユーザーID, B: ユーザー表示名, B: ニックネーム, C: ポケモン名,
-    # D: スキルM, E: スキルS, F: せいかく変化量
+    # A: ユーザーID, B: ユーザー表示名, C: ニックネーム, D: ポケモン名,
+    # E: スキルM, F: スキルS, G: せいかく変化量
     COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
     def __init__(self, service_account_file='conf/google-credentials.json',
