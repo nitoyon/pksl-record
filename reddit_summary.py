@@ -1,45 +1,38 @@
 import sys
 import io
-import json
 import re
 import argparse
+import html
 import urllib.request
 import urllib.error
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 
 # Windows cp932 対策
 if sys.stdout.encoding and sys.stdout.encoding.lower().startswith('cp'):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-POSTS_URL = "https://www.reddit.com/r/PokemonSleep/top.json?t=day&limit=10"
-COMMENTS_URL = "https://www.reddit.com/r/PokemonSleep/comments/{post_id}.json?sort=best&limit={limit}"
-POST_URL = "https://www.reddit.com/comments/{post_id}.json?sort=best&limit={limit}"
+TOP_RSS = "https://www.reddit.com/r/PokemonSleep/top.rss?t=day&limit=10"
+POST_RSS = "https://www.reddit.com/comments/{post_id}.rss?sort=best&limit={limit}"
 HEADERS = {"User-Agent": "pksl-record/1.0"}
 
+NS = {
+    "atom": "http://www.w3.org/2005/Atom",
+    "media": "http://search.yahoo.com/mrss/",
+}
 
-def fetch_json(url):
+
+def fetch_xml(url):
     req = urllib.request.Request(url, headers=HEADERS)
     try:
         with urllib.request.urlopen(req, timeout=15) as res:
-            return json.loads(res.read().decode())
+            return ET.fromstring(res.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         print(f"Error: HTTP {e.code} ({url})", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
-
-
-def fetch_top_comments(post_id, limit):
-    data = fetch_json(COMMENTS_URL.format(post_id=post_id, limit=limit))
-    comments = []
-    for child in data[1]["data"]["children"]:
-        c = child.get("data", {})
-        body = c.get("body", "").strip()
-        score = c.get("score", 0)
-        if body and body != "[deleted]" and body != "[removed]":
-            comments.append({"body": body, "score": score})
-    return comments[:limit]
 
 
 def extract_post_id(url):
@@ -50,52 +43,73 @@ def extract_post_id(url):
     return m.group(1)
 
 
+def strip_html(text):
+    return html.unescape(re.sub(r'<[^>]+>', '', text or '')).strip()
+
+
+def parse_entry(entry):
+    title = (entry.findtext("atom:title", namespaces=NS) or "").strip()
+    link_el = entry.find("atom:link", NS)
+    url = link_el.get("href", "") if link_el is not None else ""
+    content = strip_html(entry.findtext("atom:content", namespaces=NS) or "")
+    author = (entry.findtext("atom:author/atom:name", namespaces=NS) or "").strip()
+    return {"title": title, "url": url, "content": content, "author": author}
+
+
 def fetch_post_by_url(url, num_comments):
     post_id = extract_post_id(url)
-    limit = max(num_comments, 1)
-    data = fetch_json(POST_URL.format(post_id=post_id, limit=limit))
 
-    p = data[0]["data"]["children"][0]["data"]
-    title = p.get("title", "")
-    score = p.get("score", 0)
-    num_cmts = p.get("num_comments", 0)
-    permalink = "https://www.reddit.com" + p.get("permalink", "")
-    selftext = p.get("selftext", "").strip()
+    # 投稿本体
+    root = fetch_xml(TOP_RSS)
+    post_entry = None
+    for entry in root.findall("atom:entry", NS):
+        link_el = entry.find("atom:link[@rel='alternate']", NS)
+        href = link_el.get("href", "") if link_el is not None else ""
+        if post_id in href:
+            post_entry = entry
+            break
 
-    comments = []
-    for child in data[1]["data"]["children"]:
-        c = child.get("data", {})
-        body = c.get("body", "").strip()
-        cscore = c.get("score", 0)
-        if body and body != "[deleted]" and body != "[removed]":
-            comments.append({"body": body, "score": cscore})
-    comments = comments[:num_comments]
+    # 投稿が top10 にない場合は RSS から直接取得
+    if post_entry is None:
+        root = fetch_xml(f"https://www.reddit.com/comments/{post_id}.rss?limit=1")
+        entries = root.findall("atom:entry", NS)
+        post_entry = entries[0] if entries else None
 
     JST = timezone(timedelta(hours=9))
     now = datetime.now(JST).strftime("%Y-%m-%d %H:%M JST")
     print(f"取得日時: {now}")
-    print(f"URL: {permalink}")
-    print()
-    print(f"タイトル: {title}")
-    print(f"スコア: {score:,} | コメント: {num_cmts}")
-    print()
-    if selftext:
-        print(f"本文:\n{selftext}")
-    else:
-        print("本文: (画像/リンク投稿)")
-    print()
 
-    if comments:
-        print(f"人気コメント ({len(comments)}件):")
-        for c in comments:
-            print(f"  [{c['score']:,}点] {c['body']}")
-            print()
+    if post_entry is not None:
+        p = parse_entry(post_entry)
+        print(f"URL: {p['url']}")
+        print()
+        print(f"タイトル: {p['title']}")
+        print()
+        if p["content"]:
+            print(f"本文:\n{p['content']}")
+        else:
+            print("本文: (画像/リンク投稿)")
+        print()
+
+    # コメント取得
+    if num_comments > 0:
+        croot = fetch_xml(POST_RSS.format(post_id=post_id, limit=num_comments))
+        entries = croot.findall("atom:entry", NS)
+        # 最初のエントリは投稿本体なので除外
+        comment_entries = entries[1:num_comments + 1]
+        if comment_entries:
+            print(f"コメント ({len(comment_entries)}件):")
+            for e in comment_entries:
+                author = (e.findtext("atom:author/atom:name", namespaces=NS) or "").strip()
+                body = strip_html(e.findtext("atom:content", namespaces=NS) or "")
+                print(f"  [{author}] {body}")
+                print()
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--comments", type=int, default=0, metavar="N",
-                        help="各投稿の人気コメントを N 件取得する (デフォルト: 0=取得しない)")
+                        help="投稿詳細表示時にコメントを N 件取得する (--url 指定時のみ有効)")
     parser.add_argument("--url", type=str, default=None, metavar="URL",
                         help="特定の Reddit 投稿 URL を指定して詳細取得する")
     args = parser.parse_args()
@@ -105,8 +119,8 @@ def main():
         fetch_post_by_url(args.url, num_comments)
         return
 
-    data = fetch_json(POSTS_URL)
-    posts = data["data"]["children"]
+    root = fetch_xml(TOP_RSS)
+    entries = root.findall("atom:entry", NS)
 
     JST = timezone(timedelta(hours=9))
     now = datetime.now(JST).strftime("%Y-%m-%d %H:%M JST")
@@ -114,28 +128,12 @@ def main():
     print("期間: 過去24時間のトップ投稿 (r/PokemonSleep)")
     print()
 
-    for i, post in enumerate(posts, 1):
-        p = post["data"]
-        title = p.get("title", "")
-        score = p.get("score", 0)
-        num_comments = p.get("num_comments", 0)
-        url = "https://www.reddit.com" + p.get("permalink", "")
-        selftext = p.get("selftext", "").strip()
-        body = selftext[:300] + ("..." if len(selftext) > 300 else "") if selftext else "(画像/リンク投稿)"
-        print(f"[{i}] {title}")
-        print(f"    スコア: {score:,} | コメント: {num_comments}")
-        print(f"    URL: {url}")
+    for i, entry in enumerate(entries, 1):
+        p = parse_entry(entry)
+        body = p["content"][:300] + ("..." if len(p["content"]) > 300 else "") if p["content"] else "(画像/リンク投稿)"
+        print(f"[{i}] {p['title']}")
+        print(f"    URL: {p['url']}")
         print(f"    本文: {body}")
-
-        if args.comments > 0:
-            post_id = p.get("id", "")
-            comments = fetch_top_comments(post_id, args.comments)
-            if comments:
-                print(f"    人気コメント ({len(comments)}件):")
-                for c in comments:
-                    text = c["body"][:200] + ("..." if len(c["body"]) > 200 else "")
-                    print(f"      [{c['score']:,}点] {text}")
-
         print()
 
 
